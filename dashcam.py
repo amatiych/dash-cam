@@ -20,7 +20,18 @@ def sorted_ls(path):
 def convert(filename):
         mp4name = filename.replace("h264","mp4")
         call(["MP4Box","-add", filename, mp4name])
+        os.remove(filename)
         return mp4name
+
+class ConvertThread(threading.Thread):
+        def __init__(self, file):
+                self.filename = file
+                super(ConvertThread, self).__init__()
+        def run(self):
+	        convert(self.filename)
+
+
+
 
 class CleanerThread(threading.Thread):
 
@@ -86,7 +97,7 @@ class DashCamThread():
         def get_file_name(self):
                 timestamp = lambda : datetime.now().strftime("%Y%m%d_%H%M%s")
                 while True:
-                        filename =  str.format("{0}_{1}.h264", self.camera_name, timestamp())
+                        filename =  str.format("{0}_{1}_lock.h264", self.camera_name, timestamp())
                         jpgname =  str.format("{0}_{1}.jpg", self.camera_name, timestamp())
                         yield os.path.join(self.folder, filename), os.path.join(self.folder,"thumbs", jpgname)
                         sleep(0.1)
@@ -103,7 +114,7 @@ class DashCamThread():
                                 if filename:
                                         log.info("recording %s " % filename)
                                         self.cam.capture(jpgname,use_video_port=True)
-                                        self.cam.start_recording(filename +'.lock',format='h264')
+                                        self.cam.start_recording(filename ,format='h264')
                                         start = datetime.now()
                                         while (datetime.now() - start).seconds < self.duration:
                                             if loc.lat != 0: 
@@ -121,7 +132,7 @@ class DashCamThread():
                                             buf = Image.open(snapshot_filename).load()
                                             chg,pct = get_changed_pixels(prev_buf, buf, 50)
                                             buf,prev_buf = prev_buf,buf
-                                            log.info("changed %s pixels or %s pct" %(chg,pct))
+                                            #log.info("changed %s pixels or %s pct" %(chg,pct))
                                             if pct > 1:
                                                     log.info("MOTION DETECTED")
                                                     lock = True
@@ -131,8 +142,14 @@ class DashCamThread():
 
                                         self.cam.stop_recording()
                                         if not lock:
-                                                log.info("renaming file from %s to %s"  % (filename + '.lock', filename))
-                                                os.rename(filename+'.lock', filename)
+                                                clean_name = re.sub("_lock","",filename)
+                                                log.info("renaming file from %s to %s"  % (filename, clean_name))
+                                                os.rename(filename, clean_name)
+                                                cnv = ConvertThread(clean_name)
+                                        else: 
+                                                cnv= ConvertThread(filename)
+                                        cnv.start()
+
                                         lock = False
                 except Exception as ex:
                         log.error(ex)
@@ -162,8 +179,8 @@ if __name__ == '__main__':
     
         log.info(features)
 
-        camthread = DashCamThread(video_length=60,features=features, folder=folder,loc=loc)
-        cleaner = CleanerThread(folder, 60*24,log,"h264")
+        camthread = DashCamThread(video_length=5,features=features, folder=folder,loc=loc)
+        cleaner = CleanerThread(folder, features["keep"],log,"h264")
         
         log.info("Starting main threads")
  
