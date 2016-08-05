@@ -179,7 +179,7 @@ if __name__ == '__main__':
     
         log.info(features)
 
-        camthread = DashCamThread(video_length=5,features=features, folder=folder,loc=loc)
+        camthread = DashCamThread(video_length=60,features=features, folder=folder,loc=loc)
         cleaner = CleanerThread(folder, features["keep"],log,"h264")
         
         log.info("Starting main threads")
