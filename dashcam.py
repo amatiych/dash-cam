@@ -85,6 +85,7 @@ class DashCamThread():
                 self.prev_loc = Location()
                 self.duration = video_length
                 self.cam = PiCamera()
+                self.cam.led = False
                 self.cam.hflip = features["hflip"]
                 self.cam.vflip = features["vflip"]
                 self.cam.annotate_text_size = int(12)
@@ -116,6 +117,7 @@ class DashCamThread():
                                         self.cam.capture(jpgname,use_video_port=True)
                                         self.cam.start_recording(filename ,format='h264')
                                         start = datetime.now()
+                                        self.cam.led =False
                                         while (datetime.now() - start).seconds < self.duration:
                                             if loc.lat != 0: 
                                                 if prev_loc.lat != 0:
@@ -129,13 +131,15 @@ class DashCamThread():
                                             else:    
                                                 self.cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                                             self.cam.capture(snapshot_filename,use_video_port=True)
+                                            #log.info("snapshot saved")
                                             buf = Image.open(snapshot_filename).load()
                                             chg,pct = get_changed_pixels(prev_buf, buf, 50)
                                             buf,prev_buf = prev_buf,buf
                                             #log.info("changed %s pixels or %s pct" %(chg,pct))
                                             if pct > 1:
                                                     log.info("MOTION DETECTED")
-                                                    lock = True
+                                                    self.cam.led = True
+                                                    #lock = True
 
                                             self.cam.wait_recording(1)
 	
@@ -180,7 +184,7 @@ if __name__ == '__main__':
         log.info(features)
 
         camthread = DashCamThread(video_length=60,features=features, folder=folder,loc=loc)
-        cleaner = CleanerThread(folder, features["keep"],log,"h264")
+        cleaner = CleanerThread(folder, features["keep"],log,"mp4")
         
         log.info("Starting main threads")
  
